@@ -15,8 +15,6 @@
  */
 package org.datatransferproject.transfer.copier;
 
-import static java.lang.String.format;
-
 import com.google.common.base.Stopwatch;
 import com.google.inject.Provider;
 import java.io.IOException;
@@ -33,8 +31,7 @@ import org.datatransferproject.spi.transfer.provider.ExportResult;
 import org.datatransferproject.spi.transfer.provider.Exporter;
 import org.datatransferproject.spi.transfer.provider.ImportResult;
 import org.datatransferproject.spi.transfer.provider.Importer;
-import org.datatransferproject.spi.transfer.types.CopyException;
-import org.datatransferproject.spi.transfer.types.CopyExceptionWithFailureReason;
+import org.datatransferproject.spi.transfer.types.*;
 import org.datatransferproject.transfer.CallableExporter;
 import org.datatransferproject.transfer.CallableImporter;
 import org.datatransferproject.transfer.JobMetadata;
@@ -161,7 +158,16 @@ public abstract class PortabilityAbstractInMemoryDataCopier implements InMemoryD
           }
         }
       } catch (RetryException | RuntimeException e) {
-        monitor.severe(() -> "Got error importing data", e);
+        if (e.getCause() instanceof DestinationMemoryFullException) {
+          monitor.info(() -> "The remaining storage in the user's account is not enough to perform this operation.", e);
+        } else if (e.getCause() instanceof InvalidTokenException ||
+                e.getCause() instanceof SessionInvalidatedException ||
+                e.getCause() instanceof  UnconfirmedUserException ||
+                e.getCause() instanceof UserCheckpointedException) {
+          monitor.info(() -> "Got token error", e);
+        } else {
+          monitor.severe(() -> "Got error importing data", e);
+        }
         if (e.getClass() == RetryException.class
                 && CopyExceptionWithFailureReason.class.isAssignableFrom(e.getCause().getClass())) {
           throw (CopyExceptionWithFailureReason) e.getCause();
